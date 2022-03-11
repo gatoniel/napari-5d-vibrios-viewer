@@ -1,0 +1,21 @@
+name: napari-5d-vibrios-viewer
+display_name: napari 5d Vibrios viewer
+contributions:
+  commands: 
+    - id: napari-5d-vibrios-viewer.make_qwidget
+      python_name: napari_5d_vibrios_viewer._widget:ExampleQWidget
+      title: Make example QWidget
+    - id: napari-5d-vibrios-viewer.make_magic_widget
+      python_name: napari_5d_vibrios_viewer._widget:example_magic_widget
+      title: Make example magic widget
+    - id: napari-5d-vibrios-viewer.make_func_widget
+      python_name: napari_5d_vibrios_viewer._widget:example_function_widget
+      title: Make example function widget   
+  widgets:
+    - command: napari-5d-vibrios-viewer.make_qwidget
+      display_name: Example QWidget
+    - command: napari-5d-vibrios-viewer.make_magic_widget
+      display_name: Example Magic Widget
+    - command: napari-5d-vibrios-viewer.make_func_widget
+      autogenerate: true
+      display_name: Example Function Widget 
