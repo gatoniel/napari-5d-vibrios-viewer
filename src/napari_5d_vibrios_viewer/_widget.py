@@ -10,6 +10,7 @@ import os
 from glob import glob
 
 import dask.array as da
+import numpy as np
 from dask import delayed
 from magicgui.widgets import FileEdit
 from qtpy.QtWidgets import QHBoxLayout, QPushButton, QWidget
@@ -25,13 +26,24 @@ def read_files(files):
     filenames = sorted(glob(files), key=alphanumeric_key)
     sample = new_imread(filenames[0])
 
-    lazy_imread = delayed(new_imread)
-    lazy_arrays = [lazy_imread(fn) for fn in filenames]
-    dask_arrays = [
-        da.from_delayed(delayed_reader, shape=sample.shape, dtype=sample.dtype)
-        for delayed_reader in lazy_arrays
-    ]
-    return da.stack(dask_arrays, axis=0)
+    img = np.empty((len(filenames),) + sample.shape, dtype=sample.dtype)
+    img[0, ...] = sample
+
+    for i in range(1, len(filenames)):
+        img[i, ...] = new_imread(filenames[i])
+
+    # lazy_imread = delayed(new_imread)
+    # lazy_arrays = [lazy_imread(fn) for fn in filenames]
+    # dask_arrays = [
+    #     da.from_delayed(delayed_reader, shape=sample.shape, dtype=sample.dtype)
+    #     for delayed_reader in lazy_arrays
+    # ]
+    # img = da.stack(dask_arrays, axis=0)
+    # img = img.compute()
+
+    # img = np.stack([new_imread(fn) for fn in filenames], axis=0)
+
+    return img
 
 
 class DaskViewer(QWidget):
@@ -53,13 +65,27 @@ class DaskViewer(QWidget):
 
     def _on_click(self):
         path = self.file_edit.value
-        channels = list(range(1, 4))
-        channel_names = ["mKate", "mKokappa", "GFP"]
-        channel_colormaps = ["red", "bop orange", "green"]
+        # channels = list(range(1, 5))
+        channels = [4, 1, 2, 3]
+        channel_names = ["brightfield", "mKate", "mKokappa", "GFP"]
+        channel_colormaps = [
+            "gray",
+            "red",
+            "bop orange",
+            "green",
+        ]
+        # channels = list(range(1, 4))
+        # channel_names = [f"ch{i}" for i in channels]
+        # channel_colormaps = ["red", "green", "blue"]
+        print(channels)
         stacks = [read_files(os.path.join(path, f"*ch{i}*.tif")) for i in channels]
 
         for i in range(len(channels)):
             print(stacks[i].shape)
             self.viewer.add_image(
-                stacks[i], name=channel_names[i], colormap=channel_colormaps[i]
+                stacks[i],
+                name=channel_names[i],
+                colormap=channel_colormaps[i],
+                opacity=0.5,
+                scale=(1, 1, 0.3289, 0.3289),
             )
