@@ -15,33 +15,38 @@ from dask import delayed
 from magicgui.widgets import FileEdit
 from qtpy.QtWidgets import QHBoxLayout, QPushButton, QWidget
 from skimage.io.collection import alphanumeric_key
-from tifffile import imread
+from tifffile import imread, TiffFile
+
+from dask.cache import Cache
+from tqdm import tqdm
+
+cache = Cache(2e10)  # Leverage twenty gigabytes of memory
+cache.register()  # Turn cache on globally
+
+
+@delayed
+def read_page(f, page):
+    print(f, page)
+    return imread(f, key=page)
 
 
 def new_imread(f):
-    return imread(f)[1:, ...]
+    tif = TiffFile(f)
+    lazy_arrays = [read_page(f, i) for i in range(1, len(tif.pages))]
+    dask_arrays = [
+        da.from_delayed(delayed_reader, shape=(1024, 1024), dtype=np.uint16)
+        for delayed_reader in lazy_arrays
+    ]
+    img = da.stack(dask_arrays, axis=0)
+
+    return img
 
 
 def read_files(files):
     filenames = sorted(glob(files), key=alphanumeric_key)
-    sample = new_imread(filenames[0])
 
-    img = np.empty((len(filenames),) + sample.shape, dtype=sample.dtype)
-    img[0, ...] = sample
-
-    for i in range(1, len(filenames)):
-        img[i, ...] = new_imread(filenames[i])
-
-    # lazy_imread = delayed(new_imread)
-    # lazy_arrays = [lazy_imread(fn) for fn in filenames]
-    # dask_arrays = [
-    #     da.from_delayed(delayed_reader, shape=sample.shape, dtype=sample.dtype)
-    #     for delayed_reader in lazy_arrays
-    # ]
-    # img = da.stack(dask_arrays, axis=0)
-    # img = img.compute()
-
-    # img = np.stack([new_imread(fn) for fn in filenames], axis=0)
+    imgs = [new_imread(fn) for fn in tqdm(filenames)]
+    img = da.stack(imgs, axis=0)
 
     return img
 
