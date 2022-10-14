@@ -12,13 +12,16 @@ from glob import glob
 import dask.array as da
 import numpy as np
 from dask import delayed
-from magicgui.widgets import FileEdit
-from qtpy.QtWidgets import QHBoxLayout, QPushButton, QWidget
+from magicgui.widgets import FileEdit, Label
+from qtpy.QtWidgets import QVBoxLayout, QPushButton, QWidget
 from skimage.io.collection import alphanumeric_key
 from tifffile import imread, TiffFile
+from pathlib import Path
 
 from dask.cache import Cache
 from tqdm import tqdm
+
+from .helpers import get_experiment_df
 
 cache = Cache(2e10)  # Leverage twenty gigabytes of memory
 cache.register()  # Turn cache on globally
@@ -60,16 +63,39 @@ class DaskViewer(QWidget):
         super().__init__()
         self.viewer = napari_viewer
 
+        self.exp_df = get_experiment_df(
+            r"Z:\Henriette\Chitin project 2021\Chitin - Confocal data overview.xlsx"
+        )
+        self.exp_df_60 = get_experiment_df(
+            r"Z:\Henriette\Chitin project 2021\Chitin - Confocal data overview 60x.xlsx"
+        )
+
+        self.mut_label = Label(value="")
         self.file_edit = FileEdit(label="Folder: ", mode="d")
         btn = QPushButton("Click me!")
         btn.clicked.connect(self._on_click)
 
-        self.setLayout(QHBoxLayout())
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.mut_label.native)
         self.layout().addWidget(self.file_edit.native)
         self.layout().addWidget(btn)
 
     def _on_click(self):
         path = self.file_edit.value
+
+        well = Path(path).name.split("_")[0]
+        exp = Path(path).parents[0].name
+
+        experiment_id = f"{exp}-{well}"
+
+        try:
+            descr = self.exp_df.loc[experiment_id, :]
+        except KeyError:
+            descr = self.exp_df_60.loc[experiment_id, :]
+
+        label_text = f"{descr['Strains']} ({descr['Ratio']})"
+        self.mut_label.value = label_text
+
         # channels = list(range(1, 5))
         channels = [4, 1, 2, 3]
         channel_names = ["brightfield", "mKate", "mKokappa", "GFP"]
@@ -85,10 +111,17 @@ class DaskViewer(QWidget):
         print(channels)
         stacks = [read_files(os.path.join(path, f"*ch{i}*.tif")) for i in channels]
 
+        slices = [
+            slice(None, -1),
+            slice(None, -1),
+            slice(1, None),
+            slice(None, -1),
+        ]
+
         for i in range(len(channels)):
             print(stacks[i].shape)
             self.viewer.add_image(
-                stacks[i],
+                stacks[i][..., slices[i], slices[i]],
                 name=channel_names[i],
                 colormap=channel_colormaps[i],
                 opacity=0.5,
