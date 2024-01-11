@@ -63,22 +63,23 @@ class DaskViewer(QWidget):
         super().__init__()
         self.viewer = napari_viewer
 
-        self.exp_df = get_experiment_df(
-            r"Z:\Henriette\Chitin project 2021\Chitin - Confocal data overview.xlsx"
-        )
-        self.exp_df_60 = get_experiment_df(
-            r"Z:\Henriette\Chitin project 2021\Chitin - Confocal data overview 60x.xlsx"
-        )
-
         self.mut_label = Label(value="")
         self.file_edit = FileEdit(label="Folder: ", mode="d")
         btn = QPushButton("Click me!")
         btn.clicked.connect(self._on_click)
+        self.label1 = Label(value="Data overview")
+        self.exp_df_file = FileEdit(label="Data overview: ", mode="r")
+        self.label2 = Label(value="Data overview (60x)")
+        self.exp_df_60_file = FileEdit(label="Data overview (60x): ", mode="r")
 
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.mut_label.native)
         self.layout().addWidget(self.file_edit.native)
         self.layout().addWidget(btn)
+        self.layout().addWidget(self.label1.native)
+        self.layout().addWidget(self.exp_df_file.native)
+        self.layout().addWidget(self.label2.native)
+        self.layout().addWidget(self.exp_df_60_file.native)
 
     def _on_click(self):
         path = self.file_edit.value
@@ -87,6 +88,9 @@ class DaskViewer(QWidget):
         exp = Path(path).parents[0].name
 
         experiment_id = f"{exp}-{well}"
+
+        self.exp_df = get_experiment_df(self.exp_df_file.value)
+        self.exp_df_60 = get_experiment_df(self.exp_df_60_file.value)
 
         try:
             descr = self.exp_df.loc[experiment_id, :]
@@ -109,7 +113,9 @@ class DaskViewer(QWidget):
         # channel_names = [f"ch{i}" for i in channels]
         # channel_colormaps = ["red", "green", "blue"]
         print(channels)
-        stacks = [read_files(os.path.join(path, f"*ch{i}*.tif")) for i in channels]
+        stacks = [
+            read_files(os.path.join(path, f"*ch{i}*.tif")) for i in channels
+        ]
 
         slices = [
             slice(None, -1),
